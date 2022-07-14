@@ -1,0 +1,19 @@
+# vim swp
+*.swp
+
+# log and exec file
+cmake_targets/build/
+cmake_targets/log/
+cmake_targets/ran_build/
+cmake_targets/nr-uesoftmodem.Rel15
+log/
+
+
+# vscode
+.vscode
+
+# Tags for vim/global
+GPATH
+GRTAGS
+GTAGS
+tags
