@@ -28,6 +28,30 @@
 //#include <common/utils/LOG/log.h>
 #include "PHY/nw_log.h"
 #include <assert.h>
+// time begin
+# include "stdio.h"
+#include <assert.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <time.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdarg.h>
+#include <syslog.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/time.h>//px
+#include <sys/types.h>
+#include <sys/sysinfo.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <string.h>
+// time end
 //#define DEBUG_FEP
 
 /*#ifdef LOG_I
@@ -83,7 +107,7 @@ int nr_slot_fep(PHY_VARS_NR_UE *ue,
 {
   NR_DL_FRAME_PARMS *frame_parms = &ue->frame_parms;
   NR_UE_COMMON *common_vars      = &ue->common_vars;
-
+  
   AssertFatal(symbol < frame_parms->symbols_per_slot, "slot_fep: symbol must be between 0 and %d\n", frame_parms->symbols_per_slot-1);
   AssertFatal(Ns < frame_parms->slots_per_frame, "slot_fep: Ns must be between 0 and %d\n", frame_parms->slots_per_frame-1);
 
@@ -112,7 +136,7 @@ int nr_slot_fep(PHY_VARS_NR_UE *ue,
 
 //#ifdef DEBUG_FEP
   //  if (ue->frame <100)
-  LOG_D(PHY,"slot_fep: slot %d, symbol %d, nb_prefix_samples %u, nb_prefix_samples0 %u, rx_offset %u energy %d\n",
+  LOG_I(PHY,"slot_fep: slot %d, symbol %d, nb_prefix_samples %u, nb_prefix_samples0 %u, rx_offset %u energy %d\n",
   Ns, symbol, nb_prefix_samples, nb_prefix_samples0, rx_offset, dB_fixed(signal_energy(&common_vars->rxdata[0][rx_offset],frame_parms->ofdm_symbol_size)));
   //#endif
 
@@ -254,10 +278,24 @@ int nr_slot_fep_init_sync(PHY_VARS_NR_UE *ue,
     start_meas(&ue->rx_dft_stats);
 #endif
 
+    // printf("dft_input, dftsize = %d\n", dftsize);
+    // for(int i = 0; i < 2048; i++) printf("%d: %hd\n", i, rxdata_ptr[i]);
+
+    // FILE *fpwrite_input=fopen("dft_input.txt","w");
+    // if(fpwrite_input == NULL)  return 1;
+    // for(unsigned int i=0;i<2048;i++) fprintf(fpwrite_input, "%d :%d\n",i, (rxdata_ptr[i]));
+    
     dft(dftsize,
         rxdata_ptr,
         (int16_t *)&common_vars->common_vars_rx_data_per_thread[proc->thread_id].rxdataF[aa][frame_parms->ofdm_symbol_size*symbol],
         1);
+
+    // printf("dft_output, dftsize = %d\n", dftsize);
+    // for(int i = 0; i < 2048; i++) printf("%d: %hd\n", i, ((int16_t *)&common_vars->common_vars_rx_data_per_thread[proc->thread_id].rxdataF[aa][frame_parms->ofdm_symbol_size*symbol])[i]);
+
+    // FILE *fpwrite_output=fopen("dft_output.txt","w");
+    // if(fpwrite_output == NULL)  return 1;
+    // for(unsigned int i=0;i<2048;i++) fprintf(fpwrite_output, "%d: %d\n",i, ((int16_t *)&common_vars->common_vars_rx_data_per_thread[proc->thread_id].rxdataF[aa][frame_parms->ofdm_symbol_size*symbol])[i]);
 
 #if UE_TIMING_TRACE
     stop_meas(&ue->rx_dft_stats);
@@ -272,14 +310,18 @@ int nr_slot_fep_init_sync(PHY_VARS_NR_UE *ue,
     printf("slot_fep: slot %d, symbol %d rx_offset %u, rotation symbol %d %d.%d\n", Ns,symbol, rx_offset,
 	   symbol+symb_offset,((int16_t*)&rot2)[0],((int16_t*)&rot2)[1]);
 #endif
-
+    // static struct timeval st, ed;
+    // static double time_total;
+    // gettimeofday(&st, NULL);//px
     rotate_cpx_vector((int16_t *)&common_vars->common_vars_rx_data_per_thread[proc->thread_id].rxdataF[aa][frame_parms->ofdm_symbol_size*symbol],
 		      (int16_t*)&rot2,
 		      (int16_t *)&common_vars->common_vars_rx_data_per_thread[proc->thread_id].rxdataF[aa][frame_parms->ofdm_symbol_size*symbol],
 		      frame_parms->ofdm_symbol_size,
 		      15);
   }
-
+    // gettimeofday(&ed, NULL);//px
+    // time_total = (ed.tv_sec - st.tv_sec) + (ed.tv_usec - st.tv_usec) / 1000000.0; //px
+    // LOG_I(PHY,"At slot_fep_nr.c, rotate_cpx_vector time = %lf\n",time_total );//px
 #ifdef DEBUG_FEP
   printf("slot_fep: done\n");
 #endif

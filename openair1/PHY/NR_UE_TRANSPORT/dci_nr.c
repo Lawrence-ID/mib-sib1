@@ -89,6 +89,12 @@ typedef uint16_t           rnti_t;
 //static const int16_t conjugate[8]__attribute__((aligned(32))) = {-1,1,-1,1,-1,1,-1,1};
 #define SI_RNTI    (rnti_t)0xFFFF
 
+static inline int16_t signedSaturate16(int32_t x){ //return: -32768~32767
+    if(x > 32767) return 32767;
+    else if(x < -32768) return -32768;
+    else return x;
+}
+
 void nr_pdcch_demapping_deinterleaving(uint32_t *llr,
                                        uint32_t *z,
                                        uint8_t coreset_time_dur,
@@ -283,11 +289,37 @@ int32_t pdcch_llr(NR_DL_FRAME_PARMS *frame_parms,
 
 //__m128i avg128P;
 
+#if 1
 //compute average channel_level on each (TX,RX) antenna pair
 void nr_pdcch_channel_level(int32_t **dl_ch_estimates_ext,
                          NR_DL_FRAME_PARMS *frame_parms,
                          int32_t *avg,
                          uint8_t nb_rb) {
+  int16_t rb;
+  uint8_t aarx;
+
+  for (aarx=0; aarx<frame_parms->nb_antennas_rx; aarx++) {
+    //clear average level
+    int32_t sum = 0;
+    int16_t * dl_ch16 = (int16_t *)&dl_ch_estimates_ext[aarx][0];
+
+    for (rb = 0; rb < ((nb_rb*3)>>2 ) * 24; rb++) {
+      sum += dl_ch16[rb] * dl_ch16[rb];
+    }
+    DevAssert( nb_rb );
+    avg[aarx] = sum / (nb_rb * 9);
+    // printf("\npx avg = %d\n",  avg[aarx]);
+  }
+}
+#endif
+
+#if 0
+//compute average channel_level on each (TX,RX) antenna pair
+void nr_pdcch_channel_level(int32_t **dl_ch_estimates_ext,
+                         NR_DL_FRAME_PARMS *frame_parms,
+                         int32_t *avg,
+                         uint8_t nb_rb) {
+  printf("nr_pdcch_channel_level\n\n\n");
   int16_t rb;
   uint8_t aarx;
 #if defined(__x86_64__) || defined(__i386__)
@@ -327,13 +359,13 @@ void nr_pdcch_channel_level(int32_t **dl_ch_estimates_ext,
 #endif
       //      for (int i=0;i<24;i+=2) printf("pdcch channel re %d (%d,%d)\n",(rb*12)+(i>>1),((int16_t*)dl_ch128)[i],((int16_t*)dl_ch128)[i+1]);
       dl_ch128+=3;
-      /*
+      
       if (rb==0) {
       print_shorts("dl_ch128",&dl_ch128[0]);
       print_shorts("dl_ch128",&dl_ch128[1]);
       print_shorts("dl_ch128",&dl_ch128[2]);
       }
-      */
+      
     }
 
     DevAssert( nb_rb );
@@ -343,18 +375,21 @@ void nr_pdcch_channel_level(int32_t **dl_ch_estimates_ext,
                  ((int32_t *)&avg128P)[3])/(nb_rb*9);
     //            printf("Channel level : %d\n",avg[(aatx<<1)+aarx]);
   }
+  
 
 #if defined(__x86_64__) || defined(__i386__)
   _mm_empty();
   _m_empty();
 #endif
 }
-
-#if defined(__x86_64) || defined(__i386__)
-  __m128i mmtmpPD0,mmtmpPD1,mmtmpPD2,mmtmpPD3;
-#elif defined(__arm__)
-
 #endif
+
+
+// #if defined(__x86_64) || defined(__i386__)
+//   __m128i mmtmpPD0,mmtmpPD1,mmtmpPD2,mmtmpPD3;
+// #elif defined(__arm__)
+
+// #endif
 
 void nr_pdcch_extract_rbs_sib(int32_t **rxdataF,
                                  int32_t **dl_ch_estimates,
@@ -739,8 +774,44 @@ void nr_pdcch_extract_rbs_single(int32_t **rxdataF,
 #endif
 
 
-#define print_shorts(s,x) printf("%s %d,%d,%d,%d,%d,%d,%d,%d\n",s,(x)[0],(x)[1],(x)[2],(x)[3],(x)[4],(x)[5],(x)[6],(x)[7])
+// #define print_shorts(s,x) printf("%s %d,%d,%d,%d,%d,%d,%d,%d\n",s,(x)[0],(x)[1],(x)[2],(x)[3],(x)[4],(x)[5],(x)[6],(x)[7])
 
+#if 1
+void nr_pdcch_channel_compensation(int32_t **rxdataF_ext,
+                                   int32_t **dl_ch_estimates_ext,
+                                   int32_t **rxdataF_comp,
+                                   int32_t **rho,
+                                   NR_DL_FRAME_PARMS *frame_parms,
+                                   uint8_t symbol,
+                                   uint8_t output_shift,
+                                   uint32_t coreset_nbr_rb) {
+  uint16_t rb; //,nb_rb=20;
+  uint32_t i;
+  uint8_t aarx;
+
+  int16_t *dl_ch16, *rxdataF16, *rxdataF_comp16;
+
+  for (aarx=0; aarx<frame_parms->nb_antennas_rx; aarx++) {
+    dl_ch16          = (int16_t *)&dl_ch_estimates_ext[aarx][symbol*coreset_nbr_rb*12];
+    rxdataF16        = (int16_t *)&rxdataF_ext[aarx][symbol*coreset_nbr_rb*12];
+    rxdataF_comp16   = (int16_t *)&rxdataF_comp[aarx][symbol*coreset_nbr_rb*12];
+
+    for (rb=0; rb<(coreset_nbr_rb*3)>>2; rb++) {
+      for(i = 0; i < 24; i += 2){
+          rxdataF_comp16[i]     = signedSaturate16( (dl_ch16[i] * rxdataF16[i] + dl_ch16[i + 1] * rxdataF16[i + 1]) >> output_shift );
+          rxdataF_comp16[i + 1] = signedSaturate16( (dl_ch16[i] * rxdataF16[i + 1] - dl_ch16[i + 1] * rxdataF16[i]) >> output_shift );
+      }
+
+      dl_ch16 += 24;
+      rxdataF16 += 24;
+      rxdataF_comp16 += 24;
+    }
+  }
+}
+#endif
+
+#if 0
+// Original nr_pdcch_channel_compensation
 void nr_pdcch_channel_compensation(int32_t **rxdataF_ext,
                                    int32_t **dl_ch_estimates_ext,
                                    int32_t **rxdataF_comp,
@@ -835,11 +906,11 @@ void nr_pdcch_channel_compensation(int32_t **rxdataF_ext,
       //print_shorts("ch:",dl_ch128+2);
       //print_shorts("pack:",rxdataF_comp128+2);
 
-      for (int i=0; i<12 ; i++)
-        LOG_DDD("rxdataF128[%d]=(%d,%d) X dlch[%d]=(%d,%d) rxdataF_comp128[%d]=(%d,%d)\n",
-               (rb*12)+i, ((short *)rxdataF128)[i<<1],((short *)rxdataF128)[1+(i<<1)],
-               (rb*12)+i, ((short *)dl_ch128)[i<<1],((short *)dl_ch128)[1+(i<<1)],
-               (rb*12)+i, ((short *)rxdataF_comp128)[i<<1],((short *)rxdataF_comp128)[1+(i<<1)]);
+      // for (int i=0; i<12 ; i++)
+      //   printf("rxdataF128[%d]=(%d,%d) X dlch[%d]=(%d,%d) rxdataF_comp128[%d]=(%d,%d)\n",
+      //          (rb*12)+i, ((short *)rxdataF128)[i<<1],((short *)rxdataF128)[1+(i<<1)],
+      //          (rb*12)+i, ((short *)dl_ch128)[i<<1],((short *)dl_ch128)[1+(i<<1)],
+      //          (rb*12)+i, ((short *)rxdataF_comp128)[i<<1],((short *)rxdataF_comp128)[1+(i<<1)]);
 
       dl_ch128+=3;
       rxdataF128+=3;
@@ -900,8 +971,33 @@ void nr_pdcch_channel_compensation(int32_t **rxdataF_ext,
   _m_empty();
 #endif
 }
+#endif
 
+#if 1
+// px
+void nr_pdcch_detection_mrc(NR_DL_FRAME_PARMS *frame_parms,
+                         int32_t **rxdataF_comp,
+                         uint8_t symbol) {
 
+  int16_t *rxdataF_comp16_0,*rxdataF_comp16_1;
+  int32_t i;
+
+  if (frame_parms->nb_antennas_rx>1) {
+
+    rxdataF_comp16_0   = (int16_t *)&rxdataF_comp[0][symbol*frame_parms->N_RB_DL*12];
+    rxdataF_comp16_1   = (int16_t *)&rxdataF_comp[1][symbol*frame_parms->N_RB_DL*12];
+
+    // MRC on each re of rb
+    for(i = 0; i < (frame_parms->N_RB_DL*3) << 3; i++){
+      rxdataF_comp16_0[i] = signedSaturate16((rxdataF_comp16_0[i] >> 1) + (rxdataF_comp16_1[i] >> 1));
+    }
+
+  }
+}
+#endif
+
+#if 0
+// Original nr_pdcch_detection_mrc
 void nr_pdcch_detection_mrc(NR_DL_FRAME_PARMS *frame_parms,
                          int32_t **rxdataF_comp,
                          uint8_t symbol) {
@@ -936,6 +1032,7 @@ void nr_pdcch_detection_mrc(NR_DL_FRAME_PARMS *frame_parms,
   _m_empty();
 #endif
 }
+#endif
 
 #if 0
 void pdcch_siso(NR_DL_FRAME_PARMS *frame_parms,

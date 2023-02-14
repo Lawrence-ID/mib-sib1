@@ -63,6 +63,7 @@ int nbDlProcessing =0;
 #define DL_ACKNACK_NO_SET                        (2)
 #define DL_NACK                                  (0)
 #define DL_ACK                                   (1)
+#define RISCV 1
 
 //extern double cpuf;
 // void init_dlsch_tpool(uint8_t num_dlsch_threads) {
@@ -79,6 +80,27 @@ int nbDlProcessing =0;
 //   free(params);
 // }
 
+#if RISCV
+static inline int8_t signedSaturate8(int16_t x){ //return: -128~127
+    if(x > 127) return 127;
+    else if(x < -128) return -128;
+    else return x;
+}
+#else
+#if defined(__x86_64__)||defined(__i386__)
+void print_bytes(char *s,__m128i *x)
+{
+  int8_t *tempb = (int8_t *)x;
+  printf("%s  : %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",s,tempb[0],tempb[1],tempb[2],tempb[3],tempb[4],tempb[5],tempb[6],tempb[7],tempb[8],tempb[9],tempb[10],tempb[11],tempb[12],tempb[13],tempb[14],tempb[15]);
+}
+
+void print_shorts(char *s,__m128i *x)
+{
+  int16_t *tempb = (int16_t *)x;
+  printf("%s  : %d,%d,%d,%d,%d,%d,%d,%d\n",s,tempb[0],tempb[1],tempb[2],tempb[3],tempb[4],tempb[5],tempb[6],tempb[7]);
+}
+#endif
+#endif
 
 void free_nr_ue_dlsch(NR_UE_DLSCH_t **dlschptr,uint8_t N_RB_DL) {
   int i,r;
@@ -301,6 +323,12 @@ uint32_t nr_dlsch_decoding(PHY_VARS_NR_UE *phy_vars_ue,
   }
 
   uint16_t dmrs_length = get_num_dmrs(harq_process->dlDmrsSymbPos);
+
+  #if RISCV
+    uint32_t i = 0;
+  int16_t *pv = (int16_t *)&z;
+  int8_t * pl = (int8_t *)&l;
+#else
   uint32_t i,j;
 #if defined(__x86_64__)||defined(__i386__)
   __m128i *pv = (__m128i *)&z;
@@ -309,6 +337,9 @@ uint32_t nr_dlsch_decoding(PHY_VARS_NR_UE *phy_vars_ue,
   int16x8_t *pv = (int16x8_t *)&z;
   int8x16_t *pl = (int8x16_t *)&l;
 #endif
+#endif
+
+
   //vcd_signal_dumper_dump_function_by_name(VCD_SIGNAL_DUMPER_FUNCTIONS_DLSCH_SEGMENTATION, VCD_FUNCTION_IN);
 
   //NR_DL_UE_HARQ_t *harq_process = dlsch->harq_processes[0];
@@ -529,6 +560,12 @@ uint32_t nr_dlsch_decoding(PHY_VARS_NR_UE *phy_vars_ue,
       //skip filler bits
       memcpy((&z[0]+Kr),harq_process->d[r]+(Kr-2*harq_process->Z),(kc*harq_process->Z-Kr)*sizeof(int16_t));
 
+#if RISCV
+      //Saturate coded bits before decoding into 8 bits values
+      for(i = 0; i < kc*harq_process->Z; i++){
+        pl[i] = signedSaturate8(pv[i]);
+      }
+#else
 #if defined(__x86_64__)||defined(__i386__)
       //Saturate coded bits before decoding into 8 bits values
       for (i=0, j=0; j < ((kc*harq_process->Z)>>4)+1;  i+=2, j++) {
@@ -538,6 +575,7 @@ uint32_t nr_dlsch_decoding(PHY_VARS_NR_UE *phy_vars_ue,
       for (i=0, j=0; j < ((kc*harq_process->Z)>>4)+1;  i+=2, j++) {
         pl[j] = vcombine_s8(vqmovn_s16(pv[i]),vqmovn_s16(pv[i+1]));
       }
+#endif
 #endif
 
       //VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_DLSCH_LDPC, VCD_FUNCTION_IN);

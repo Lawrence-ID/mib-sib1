@@ -34,6 +34,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
+#include <sys/time.h> //px 2022-22-29
 
 #include "PHY/defs_nr_UE.h"
 
@@ -883,10 +884,15 @@ int pss_search_time_nr(int **rxdata, ///rx data in time domain
         for (ar=0; ar<frame_parms->nb_antennas_rx; ar++) {
 
           /* perform correlation of rx data and pss sequence ie it is a dot product */
+          // struct timeval st, ed;//px
+          // gettimeofday(&st, NULL);//px
           result  = dot_product64((short*)primary_synchro_time_nr[pss_index], 
 				  (short*) &(rxdata[ar][n+is*frame_parms->samples_per_frame]), 
 				  frame_parms->ofdm_symbol_size, 
 				  shift);
+          // gettimeofday(&ed, NULL);//px
+          // double time_total = (ed.tv_sec - st.tv_sec) + (ed.tv_usec - st.tv_usec) / 1000000.0; //px
+          // LOG_I(PHY,"At pss_search_time_nr, dot_product64 time = %.9lf\n",time_total );//px
 	  pss_corr_ue[pss_index][n] += abs64(result);
           //((short*)pss_corr_ue[pss_index])[2*n] += ((short*) &result)[0];   /* real part */
           //((short*)pss_corr_ue[pss_index])[2*n+1] += ((short*) &result)[1]; /* imaginary part */

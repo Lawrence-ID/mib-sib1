@@ -24,18 +24,23 @@
 
 // returns the complex dot product of x and y
 
-#ifdef MAIN
-void print_ints(char *s,__m128i *x);
-void print_shorts(char *s,__m128i *x);
-void print_bytes(char *s,__m128i *x);
-#endif
+
+// void print_ints(char *s,__m128i *x);
+// void print_shorts(char *s,__m128i *x);
+// void print_bytes(char *s,__m128i *x);
+
+static inline int16_t signedSaturate16(int32_t x){ //return: -32768~32767
+    if(x > 32767) return 32767;
+    else if(x < -32768) return -32768;
+    else return x;
+}
 
 int32_t dot_product(int16_t *x,
                     int16_t *y,
                     uint32_t N, //must be a multiple of 8
                     uint8_t output_shift)
 {
-
+#if 0
   uint32_t n;
 
 #if defined(__x86_64__) || defined(__i386__)
@@ -161,9 +166,32 @@ int32_t dot_product(int16_t *x,
   result = vqmovn_s32(vcombine_s32(result2.val[0],result2.val[1]));
   return(vget_lane_s32(*((int32x2_t *)&result),0));
 #endif
+
+#endif //#if 0
 }
 
+#if 1
+// px dot_product64 Need to be improved!
+int64_t dot_product64(int16_t *x,
+                      int16_t *y,
+                      uint32_t N, //must be a multiple of 8
+                      uint8_t output_shift)
+{
+    // printf("==========px dot_product64==========\n");
+    int32_t mul_re = 0, mul_im = 0;
+    int64_t result;
+    for(uint32_t i = 0; i < (N << 1); i += 2){
+        mul_re += signedSaturate16( (x[i] * y[i] + x[i + 1] * y[i + 1]) >> output_shift);
+        mul_im += signedSaturate16( (x[i] * y[i + 1] - x[i + 1] * y[i]) >> output_shift);
+    }
+    result = ((int64_t)mul_im << 32) | mul_re;
+    // if(((int32_t*)&result)[0] != 0) printf("result: (%d,%d)\n",((int32_t*)&result)[0],((int32_t*)&result)[1]); 
+    return result;
+}
+#endif
 
+#if 0
+// Originaldot_product64
 int64_t dot_product64(int16_t *x,
                       int16_t *y,
                       uint32_t N, //must be a multiple of 8
@@ -184,9 +212,9 @@ int64_t dot_product64(int16_t *x,
 
   for (n=0; n<(N>>2); n++) {
 
-//    printf("n=%d, x128=%p, y128=%p\n",n,x128,y128);
-  //      print_shorts("x",&x128[0]);
-    //    print_shorts("y",&y128[0]);
+  //  printf("n=%d, x128=%p, y128=%p\n",n,x128,y128);
+      //  print_shorts("x",&x128[0]);
+      //  print_shorts("y",&y128[0]);
 
     // this computes Re(z) = Re(x)*Re(y) + Im(x)*Im(y)
     mmtmp1 = _mm_madd_epi16(x128[0],y128[0]);
@@ -196,25 +224,25 @@ int64_t dot_product64(int16_t *x,
     // shift and accumulate results
     mmtmp1 = _mm_srai_epi32(mmtmp1,output_shift);
     mmcumul_re = _mm_add_epi32(mmcumul_re,mmtmp1);
-        //print_ints("re",&mmcumul_re);
+        // print_ints("re",&mmcumul_re);
 
 
     // this computes Im(z) = Re(x)*Im(y) - Re(y)*Im(x)
     mmtmp2 = _mm_shufflelo_epi16(y128[0],_MM_SHUFFLE(2,3,0,1));
-        //print_shorts("y",&mmtmp2);
+        // print_shorts("y",&mmtmp2);
     mmtmp2 = _mm_shufflehi_epi16(mmtmp2,_MM_SHUFFLE(2,3,0,1));
-        //print_shorts("y",&mmtmp2);
+        // print_shorts("y",&mmtmp2);
     mmtmp2 = _mm_sign_epi16(mmtmp2,minus_i);
           //  print_shorts("y",&mmtmp2);
 
     mmtmp3 = _mm_madd_epi16(x128[0],mmtmp2);
-            //print_ints("imtmp",&mmtmp3);
+            // print_ints("imtmp",&mmtmp3);
     // mmtmp3 contains imag part of 4 consecutive outputs (32-bit)
 
     // shift and accumulate results
     mmtmp3 = _mm_srai_epi32(mmtmp3,output_shift);
     mmcumul_im = _mm_add_epi32(mmcumul_im,mmtmp3);
-        //print_ints("im",&mmcumul_im);
+        // print_ints("im",&mmcumul_im);
 
     x128++;
     y128++;
@@ -222,18 +250,21 @@ int64_t dot_product64(int16_t *x,
 
   // this gives Re Re Im Im
   mmcumul = _mm_hadd_epi32(mmcumul_re,mmcumul_im);
-    //print_ints("cumul1",&mmcumul);
+    // print_ints("cumul1",&mmcumul);
 
   // this gives Re Im Re Im
   mmcumul = _mm_hadd_epi32(mmcumul,mmcumul);
 
-    //print_ints("cumul2",&mmcumul);
+    // print_ints("re",&mmcumul_re);
+    // print_ints("im",&mmcumul_im);
+    // print_ints("cumul2",&mmcumul);
 
 
   //mmcumul = _mm_srai_epi32(mmcumul,output_shift);
   // extract the lower half
-  result = _mm_extract_epi64(mmcumul,0);
-  //printf("result: (%d,%d)\n",((int32_t*)&result)[0],((int32_t*)&result)[1]); 
+  result = _mm_extract_epi64(mmcumul, 0);
+  // result = _mm_cvtsi128_si64(mmcumul);
+  // if(((int32_t*)&result)[0] != 0) printf("result: (%d,%d)\n",((int32_t*)&result)[0],((int32_t*)&result)[1]); 
   _mm_empty();
   _m_empty();
  
@@ -285,7 +316,7 @@ int64_t dot_product64(int16_t *x,
   return(vgetq_lane_s64(*(int64x2_t*)&result2,0));
 #endif
 }
-
+#endif
 
 #ifdef MAIN
 void print_bytes(char *s,__m128i *x)

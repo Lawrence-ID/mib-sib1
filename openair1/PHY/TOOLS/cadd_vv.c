@@ -28,8 +28,10 @@ int add_vector16(short *x,
                  short *z,
                  unsigned int N)
 {
+#if 0
 #if defined(__x86_64__) || defined(__i386__)
   unsigned int i;                 // loop counter
+  printf("add_vector16\n\n");
 
   __m128i *x_128;
   __m128i *y_128;
@@ -91,6 +93,8 @@ int add_vector16(short *x,
 #elif defined(__arm__) || defined(__aarch64__)
   AssertFatal(1==0,"add_vector16 Need to do this still for ARM\n");
 #endif
+
+#endif
   return(0);
 }
 
@@ -108,12 +112,15 @@ int add_vector16_64(short *x,
                     short *z,
                     unsigned int N)
 {
+#if 0
 #if defined(__x86_64__) || defined(__i386__)
   unsigned int i;                 // loop counter
 
   __m64 *x_64;
   __m64 *y_64;
   __m64 *z_64;
+
+  printf("add_vector16_64\n\n");
 
   x_64 = (__m64 *)&x[0];
   y_64 = (__m64 *)&y[0];
@@ -140,6 +147,8 @@ int add_vector16_64(short *x,
 #elif defined(__arm__) || defined(__aarch64__)
   AssertFatal(1==0,"add_vector16_64 Need to do this still for ARM\n");
 #endif
+
+#endif
   return(0);
 }
 
@@ -148,8 +157,10 @@ int add_cpx_vector32(short *x,
                      short *z,
                      unsigned int N)
 {
+#if 0
 #if defined(__x86_64__) || defined(__i386__)
   unsigned int i;                 // loop counter
+  printf("add_vector32\n\n");
 
   __m128i *x_128;
   __m128i *y_128;
@@ -178,6 +189,8 @@ int add_cpx_vector32(short *x,
 #elif defined(__arm__) || defined(__aarch64__)
   AssertFatal(1==0,"add_cpx_vector32 Need to do this still for ARM\n");
 #endif
+
+#endif
   return(0);
 }
 
@@ -186,8 +199,10 @@ int32_t sub_cpx_vector16(int16_t *x,
                      int16_t *z,
                      uint32_t N)
 {
+#if 0
 #if defined(__x86_64__) || defined(__i386__)
   unsigned int i;                 // loop counter
+  printf("sub_cpx_vector16\n\n");
 
   __m128i *x_128;
   __m128i *y_128;
@@ -211,6 +226,8 @@ int32_t sub_cpx_vector16(int16_t *x,
 #elif defined(__arm__) || defined(__aarch64__)
   AssertFatal(1==0,"sub_cpx_vector16 Need to do this still for ARM\n");
 #endif
+
+#endif
   return(0);
 }
 
@@ -221,7 +238,9 @@ int add_real_vector64(short *x,
                       short *z,
                       unsigned int N)
 {
+#if 0
 #if defined(__x86_64__) || defined(__i386__)
+printf("add_real_vector164\n\n");
   unsigned int i;                 // loop counter
 
   __m128i *x_128;
@@ -250,6 +269,8 @@ int add_real_vector64(short *x,
 #elif defined(__arm__) || defined(__aarch64__)
   AssertFatal(1==0,"add_real_vector64 Need to do this still for ARM\n");
 #endif
+
+#endif
   return(0);
 }
 
@@ -258,7 +279,9 @@ int sub_real_vector64(short *x,
                       short *z,
                       unsigned int N)
 {
+#if 0
 #if defined(__x86_64__) || defined(__i386__)
+printf("sub_real_vector64\n\n");
   unsigned int i;                 // loop counter
 
   __m128i *x_128;
@@ -286,6 +309,8 @@ int sub_real_vector64(short *x,
   _m_empty();
 #elif defined(__arm__) || defined(__aarch64__)
   AssertFatal(1==0,"sub_real_vector64 Need to do this still for ARM\n");
+#endif
+
 #endif
   return(0);
 }

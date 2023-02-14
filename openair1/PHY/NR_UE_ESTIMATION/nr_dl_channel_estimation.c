@@ -21,6 +21,7 @@
 
 
 #include <string.h>
+#include <sys/time.h> //px 2022-22-29
 #include "SCHED_NR_UE/defs.h"
 #include "nr_estimation.h"
 #include "PHY/TOOLS/tools_defs.h"
@@ -820,10 +821,15 @@ int nr_pdsch_channel_estimation(PHY_VARS_NR_UE *ue,
       printf("pilot 0 : rxF - > (%d,%d) addr %p  ch -> (%d,%d), pil -> (%d,%d) \n",rxF[0],rxF[1],&rxF[0],ch[0],ch[1],pil[0],pil[1]);
       printf("data 0 : rxF - > (%d,%d) addr %p  ch -> (%d,%d), pil -> (%d,%d) \n",rxF[2],rxF[3],&rxF[2],ch[0],ch[1],pil[0],pil[1]);
 #endif
+      // struct timeval st, ed;//px
+      // gettimeofday(&st, NULL);//px
       multadd_real_vector_complex_scalar(fl,
                                          ch,
                                          dl_ch,
                                          8);
+      // gettimeofday(&ed, NULL);//px
+      // double time_total = (ed.tv_sec - st.tv_sec) + (ed.tv_usec - st.tv_usec) / 1000000.0; //px
+      // LOG_I(PHY,"At nr_pdsch_channel_estimation, multadd_real_vector_complex_scalar time = %.9lf\n",time_total );//px
       pil += 2;
       re_offset = (re_offset+2) % ue->frame_parms.ofdm_symbol_size;
       rxF   = (int16_t *)&rxdataF[aarx][(symbol_offset+nushift+re_offset)];

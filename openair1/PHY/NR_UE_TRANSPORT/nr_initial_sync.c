@@ -299,6 +299,7 @@ int nr_initial_sync(UE_nr_rxtx_proc_t *proc,
 
       nr_gold_pbch(ue);
       ret = nr_pbch_detection(proc, ue, 1);  // start pbch detection at first symbol after pss
+      LOG_I(PHY, "The Result of nr_pbch_detection: ret = %d\n", ret);
 
       if (ret == 0) {
         // sync at symbol ue->symbol_offset
@@ -483,6 +484,7 @@ int nr_initial_sync(UE_nr_rxtx_proc_t *proc,
   }
 #if 1
   // if stand alone and sync on ssb do sib1 detection as part of initial sync
+  LOG_I(PHY, "At nr_initial_sync.c, sa = %d, ret = %d\n", sa, ret);
   if (sa==1 && ret==0) {
     bool dec = false;
     NR_UE_PDCCH *pdcch_vars  = ue->pdcch_vars[proc->thread_id][0];

@@ -21,6 +21,7 @@
 
 #ifndef __TIME_MEAS_DEFS__H__
 #define __TIME_MEAS_DEFS__H__
+#define RISCV 1
 
 #include <unistd.h>
 #include <math.h>
@@ -35,7 +36,28 @@
 extern int opp_enabled;
 extern double cpu_freq_GHz  __attribute__ ((aligned(32)));;
 
-#if defined(__x86_64__) || defined(__i386__)
+// #if defined(__x86_64__) || defined(__i386__)
+// typedef struct {
+//   long long in;
+//   long long diff;
+//   long long p_time; /*!< \brief absolute process duration */
+//   long long diff_square; /*!< \brief process duration square */
+//   long long max;
+//   int trials;
+//   int meas_flag;
+// } time_stats_t;
+// #elif defined(__arm__) || defined(__aarch64__)
+// typedef struct {
+//   uint32_t in;
+//   uint32_t diff;
+//   uint32_t p_time; /*!< \brief absolute process duration */
+//   uint32_t diff_square; /*!< \brief process duration square */
+//   uint32_t max;
+//   int trials;
+//   int meas_flag;
+// } time_stats_t;
+// #endif
+
 typedef struct {
   long long in;
   long long diff;
@@ -45,17 +67,6 @@ typedef struct {
   int trials;
   int meas_flag;
 } time_stats_t;
-#elif defined(__arm__) || defined(__aarch64__)
-typedef struct {
-  uint32_t in;
-  uint32_t diff;
-  uint32_t p_time; /*!< \brief absolute process duration */
-  uint32_t diff_square; /*!< \brief process duration square */
-  uint32_t max;
-  int trials;
-  int meas_flag;
-} time_stats_t;
-#endif
 
 static inline void start_meas(time_stats_t *ts) __attribute__((always_inline));
 static inline void stop_meas(time_stats_t *ts) __attribute__((always_inline));
@@ -66,6 +77,13 @@ void print_meas(time_stats_t *ts, const char *name, time_stats_t *total_exec_tim
 double get_time_meas_us(time_stats_t *ts);
 double get_cpu_freq_GHz(void);
 
+
+static inline unsigned long long rdtsc_oai(void) {
+  // Need to over write
+  return 0;
+}
+
+#if 0
 #if defined(__i386__)
 static inline unsigned long long rdtsc_oai(void) __attribute__((always_inline));
 static inline unsigned long long rdtsc_oai(void) {
@@ -101,12 +119,15 @@ static inline uint64_t rdtsc_oai(void) {
   return r * (Current_Speed/External_Clock);
 }
 #endif
+#endif
+
 
 #define CPUMEAS_DISABLE  0
 #define CPUMEAS_ENABLE   1
 #define CPUMEAS_GETSTATE 2
 int cpumeas(int action);
 static inline void start_meas(time_stats_t *ts) {
+  printf("At time_meas.h, function: start_means\n");
   if (opp_enabled) {
     if (ts->meas_flag==0) {
       ts->trials++;
@@ -119,6 +140,7 @@ static inline void start_meas(time_stats_t *ts) {
 }
 
 static inline void stop_meas(time_stats_t *ts) {
+  printf("At time_meas.h, function: stop_means\n");
   if (opp_enabled) {
     long long out = rdtsc_oai();
     ts->diff += (out-ts->in);

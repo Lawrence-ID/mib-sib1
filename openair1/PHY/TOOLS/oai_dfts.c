@@ -52,6 +52,128 @@
 
 #include "tools_defs.h"
 
+#if RISCV
+// Need to over write
+
+void init_rad4(int N,int16_t *tw) {
+
+  int16_t *twa = tw;
+  int16_t *twb = twa+(N/2);
+  int16_t *twc = twb+(N/2);
+  int i;
+
+  for (i=0;i<(N/4);i++) {
+    *twa = (int16_t)round(32767.0*cos(2*M_PI*i/N)); twa++;
+    *twa = -(int16_t)round(32767.0*sin(2*M_PI*i/N)); twa++;
+    *twb = (int16_t)round(32767.0*cos(2*M_PI*2*i/N)); twb++;
+    *twb = -(int16_t)round(32767.0*sin(2*M_PI*2*i/N)); twb++;
+    *twc = (int16_t)round(32767.0*cos(2*M_PI*3*i/N)); twc++;
+    *twc = -(int16_t)round(32767.0*sin(2*M_PI*3*i/N)); twc++;
+  }
+}
+void init_rad4_rep(int N,int16_t *twa,int16_t *twb,int16_t *twc) {
+
+  int i,j;
+
+  for (i=1;i<(N/4);i++) {
+    twa[0] = (int16_t)round(32767.0*cos(2*M_PI*i/N));
+    twa[1] = -(int16_t)round(32767.0*sin(2*M_PI*i/N));
+    twb[0] = (int16_t)round(32767.0*cos(2*M_PI*2*i/N));
+    twb[1] = -(int16_t)round(32767.0*sin(2*M_PI*2*i/N));
+    twc[0] = (int16_t)round(32767.0*cos(2*M_PI*3*i/N));
+    twc[1] = -(int16_t)round(32767.0*sin(2*M_PI*3*i/N));
+    for (j=1;j<4;j++) {
+      ((int32_t*)twa)[j]=((int32_t*)twa)[0];
+      ((int32_t*)twb)[j]=((int32_t*)twb)[0];
+      ((int32_t*)twc)[j]=((int32_t*)twc)[0];
+    }
+    twa+=8;
+    twb+=8;
+    twc+=8;
+  }
+}
+
+void init_rad2(int N,int16_t *tw) {
+
+  int16_t *twa = tw;
+  int i;
+
+  for (i=0;i<(N>>1);i++) {
+    *twa = (int16_t)round(32767.0*cos(2*M_PI*i/N)); twa++;
+    *twa = -(int16_t)round(32767.0*sin(2*M_PI*i/N)); twa++;
+  }
+}
+
+void init_rad2_rep(int N,int16_t *twa) {
+
+  int i,j;
+
+  for (i=1;i<(N/2);i++) {
+    twa[0] = (int16_t)round(32767.0*cos(2*M_PI*i/N));
+    twa[1] = -(int16_t)round(32767.0*sin(2*M_PI*i/N));
+    for (j=1;j<4;j++) {
+      ((int32_t*)twa)[j]=((int32_t*)twa)[0];
+    }
+    twa+=8;
+  }
+}
+
+void init_rad3(int N,int16_t *twa,int16_t *twb) {
+
+  int i;
+
+  for (i=0;i<(N/3);i++) {
+    *twa = (int16_t)round(32767.0*cos(2*M_PI*i/N)); twa++;
+    *twa = -(int16_t)round(32767.0*sin(2*M_PI*i/N)); twa++;
+    *twb = (int16_t)round(32767.0*cos(2*M_PI*2*i/N)); twb++;
+    *twb = -(int16_t)round(32767.0*sin(2*M_PI*2*i/N)); twb++;
+  }
+}
+
+void init_rad3_rep(int N,int16_t *twa,int16_t *twb) {
+
+  int i,j;
+
+  for (i=1;i<(N/3);i++) {
+    twa[0] = (int16_t)round(32767.0*cos(2*M_PI*i/N));
+    twa[1] = -(int16_t)round(32767.0*sin(2*M_PI*i/N));
+    twb[0] = (int16_t)round(32767.0*cos(2*M_PI*2*i/N));
+    twb[1] = -(int16_t)round(32767.0*sin(2*M_PI*2*i/N));
+    for (j=1;j<4;j++) {
+      ((int32_t*)twa)[j]=((int32_t*)twa)[0];
+      ((int32_t*)twb)[j]=((int32_t*)twb)[0];
+    }
+    twa+=8;
+    twb+=8;
+  }
+}
+
+/*----------------------------------------------------------------*/
+/* dft library entry points:                                      */
+
+int dfts_autoinit(void)
+{
+  // init_rad4(1024,tw1024);
+  // init_rad2(2048,tw2048);
+  // init_rad4(4096,tw4096);
+
+  // init_rad3(1536,twa1536,twb1536);
+  // init_rad3(3072,twa3072,twb3072);
+
+  return 0;
+}
+
+void dft(uint8_t sizeidx, int16_t *sigF,int16_t *sig,unsigned char scale_flag){
+	AssertFatal((sizeidx>=0 && sizeidx<(int)DFT_SIZE_IDXTABLESIZE),"Invalid dft size index %i\n",sizeidx);
+
+};
+
+void idft(uint8_t sizeidx, int16_t *sigF,int16_t *sig,unsigned char scale_flag){
+	AssertFatal((sizeidx>=0 && sizeidx<(int)IDFT_SIZE_IDXTABLESIZE),"Invalid idft size index %i\n",sizeidx);
+
+};
+#else
+
 #define print_shorts(s,x) printf("%s %d,%d,%d,%d,%d,%d,%d,%d\n",s,(x)[0],(x)[1],(x)[2],(x)[3],(x)[4],(x)[5],(x)[6],(x)[7])
 #define print_shorts256(s,x) printf("%s %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",s,(x)[0],(x)[1],(x)[2],(x)[3],(x)[4],(x)[5],(x)[6],(x)[7],(x)[8],(x)[9],(x)[10],(x)[11],(x)[12],(x)[13],(x)[14],(x)[15])
 
@@ -62,11 +184,6 @@ const static int16_t conjugatedft[32] __attribute__((aligned(32))) = {-1,1,-1,1,
 
 
 const static int16_t reflip[32]  __attribute__((aligned(32))) = {1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1};
-
-
-
-
-
 
 #if defined(__x86_64__) || defined(__i386__)
 static inline void cmac(__m128i a,__m128i b, __m128i *re32, __m128i *im32) __attribute__((always_inline));
@@ -6783,3 +6900,5 @@ int main(int argc, char**argv)
 
 
 #endif
+
+#endif // RISCV

@@ -33,6 +33,12 @@
  * \version 0.2
 */
 
+#define RISCV 0
+
+#if RISCV
+// no operation
+#else
+
 #ifndef SSE_INTRIN_H
 #define SSE_INTRIN_H
 
@@ -402,3 +408,5 @@ static inline vect128 mulByConjugate128(vect128 *a, vect128 *b, int8_t output_sh
 //TBD
 #endif
 #endif // SSE_INTRIN_H
+
+#endif // #if 0/1

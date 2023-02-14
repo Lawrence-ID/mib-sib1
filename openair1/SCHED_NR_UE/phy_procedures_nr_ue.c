@@ -533,7 +533,6 @@ bool nr_ue_dlsch_procedures(PHY_VARS_NR_UE *ue,
                             NR_UE_DLSCH_t *dlsch1,
                             int *dlsch_errors,
                             uint8_t dlsch_parallel) {
-
   if (dlsch0==NULL)
     AssertFatal(0,"dlsch0 should be defined at this level \n");
   bool dec = false;

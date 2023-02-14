@@ -46,6 +46,7 @@ int mult_cpx_conj_vector(int16_t *x1,
                          int output_shift,
 			 int madd)
 {
+#if 0
   // Multiply elementwise the complex conjugate of x1 with x2.
   // x1       - input 1    in the format  |Re0 Im0 Re1 Im1|,......,|Re(N-2)  Im(N-2) Re(N-1) Im(N-1)|
   //            We assume x1 with a dinamic of 15 bit maximum
@@ -133,7 +134,7 @@ int mult_cpx_conj_vector(int16_t *x1,
 
   _mm_empty();
   _m_empty();
-
+#endif
   return(0);
 }
 
@@ -143,6 +144,7 @@ int mult_cpx_vector(int16_t *x1, //Q15
                     uint32_t N,
                     int output_shift)
 {
+#if 0
   // Multiply elementwise x1 with x2.
   // x1       - input 1    in the format  |Re0 Im0 Re1 Im1|,......,|Re(N-2)  Im(N-2) Re(N-1) Im(N-1)|
   //            We assume x1 with a dinamic of 15 bit maximum
@@ -226,6 +228,8 @@ int mult_cpx_vector(int16_t *x1, //Q15
     y_128++;
   }
 #endif
+
+#endif
   return(0);
 }
 
@@ -236,6 +240,7 @@ int multadd_cpx_vector(int16_t *x1,
                     uint32_t N,
                     int output_shift)
 {
+#if 0
   // Multiply elementwise the complex conjugate of x1 with x2.
   // x1       - input 1    in the format  |Re0 Im0 Re1 Im1|,......,|Re(N-2)  Im(N-2) Re(N-1) Im(N-1)|
   //            We assume x1 with a dinamic of 15 bit maximum
@@ -319,5 +324,7 @@ int multadd_cpx_vector(int16_t *x1,
     y_128++;
   }
 #endif
+
+#endif // if 0
   return(0);
 }

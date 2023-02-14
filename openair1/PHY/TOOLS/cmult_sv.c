@@ -20,6 +20,7 @@
  */
 
 #include "PHY/sse_intrin.h"
+#include <string.h> //px 2022-11-14
 #include "tools_defs.h"
 #include "assertions.h"
 #if defined(__x86_64__) || defined(__i386__)
@@ -44,6 +45,23 @@
 #define _m_empty()
 #endif
 
+// void print128_num(__m128i var){//px 2022-11-14
+//   uint16_t val[8];
+//   memcpy(val, &var, sizeof val);
+//   printf("Numerical: %hd %hd %hd %hd %hd %hd %hd %hd \n", val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
+// }
+
+// void print128_0x(__m128i var){// px 2022-11-14
+//   int64_t v64var[2];
+//   memcpy(v64var, &var, sizeof var);
+//   printf("0x: %.16llx %.16llx\n", v64var[1], v64var[0]);
+// }
+
+static inline int16_t signedSaturate16(int32_t x){ //return: -32768~32767
+    if(x > 32767) return 32767;
+    else if(x < -32768) return -32768;
+    else return x;
+}
 
 void multadd_complex_vector_real_scalar(int16_t *x,
                                         int16_t alpha,
@@ -51,7 +69,7 @@ void multadd_complex_vector_real_scalar(int16_t *x,
                                         uint8_t zero_flag,
                                         uint32_t N)
 {
-
+#if 0
   simd_q15_t alpha_128,*x_128=(simd_q15_t *)x,*y_128=(simd_q15_t*)y;
   int n;
 
@@ -72,10 +90,26 @@ void multadd_complex_vector_real_scalar(int16_t *x,
  
   _mm_empty();
   _m_empty();
-
+#endif
 }
 
+#if 1
+// px multadd_real_vector_complex_scalar
+void multadd_real_vector_complex_scalar(int16_t *x, int16_t *alpha, int16_t *y, uint32_t N){
+  // printf("==========px multadd_real_vector_complex_scalar==========\n");
+    // N : x0, x1, ... , xN-2, xN-1
+    uint32_t i = 0, j = 0;
+    for( i = 0; i < N; i++){
+        y[j] = signedSaturate16(y[j] + (int16_t)( ((uint32_t)(x[i] * alpha[0]) >> 16) << 2 ));
+        j++;
+        y[j] = signedSaturate16(y[j] + (int16_t)( ((uint32_t)(x[i] * alpha[1]) >> 16) << 2 ));
+        j++;
+    }
+}
+#endif
 
+#if 0
+// Original multadd_real_vector_complex_scalar
 void multadd_real_vector_complex_scalar(int16_t *x,
                                         int16_t *alpha,
                                         int16_t *y,
@@ -86,6 +120,7 @@ void multadd_real_vector_complex_scalar(int16_t *x,
 
   // do 8 multiplications at a time
   simd_q15_t alpha_r_128,alpha_i_128,yr,yi,*x_128=(simd_q15_t*)x,*y_128=(simd_q15_t*)y;
+
   int j;
 
   //  printf("alpha = %d,%d\n",alpha[0],alpha[1]);
@@ -100,8 +135,10 @@ void multadd_real_vector_complex_scalar(int16_t *x,
     yi     = mulhi_s1_int16(alpha_i_128,x_128[i]);
 #if defined(__x86_64__) || defined(__i386__)
     y_128[j]   = _mm_adds_epi16(y_128[j],_mm_unpacklo_epi16(yr,yi));
+    // print128_num(y_128[j]);//px 2022-11-29
     j++;
     y_128[j]   = _mm_adds_epi16(y_128[j],_mm_unpackhi_epi16(yr,yi));
+    // print128_num(y_128[j]);//px 2022-11-29
     j++;
 #elif defined(__arm__) || defined(__aarch64__)
     int16x8x2_t yint;
@@ -118,11 +155,13 @@ void multadd_real_vector_complex_scalar(int16_t *x,
   _m_empty();
 
 }
+#endif
 
 void multadd_real_four_symbols_vector_complex_scalar(int16_t *x,
                                                      int16_t *alpha,
                                                      int16_t *y)
 {
+#if 0
 #if defined(__x86_64__) || defined(__i386__)
   // do 8 multiplications at a time
   simd_q15_t alpha_r_128,alpha_i_128,yr,yi,*x_128=(simd_q15_t*)x;
@@ -146,6 +185,7 @@ void multadd_real_four_symbols_vector_complex_scalar(int16_t *x,
   AssertFatal(1==0,"multadd_real_four_symbols_vector_complex_scalar Need to do this still for ARM\n");
 #endif
 
+#endif
 }
 
 /*
@@ -345,6 +385,26 @@ int rotate_cpx_vector2(int16_t *x,
 }
 */
 
+#if 1
+//px rotate_cpx_vector2022-11-16
+int rotate_cpx_vector(int16_t *x,
+                      int16_t *alpha,
+                      int16_t *y,
+                      uint32_t N,
+                      uint16_t output_shift)
+{
+  printf("==========px rotate_cpx_vector==========\n");
+  uint32_t i = 0;
+  for(i = 0; i < (N << 1); i += 2) {
+    y[i] = signedSaturate16((x[i] * alpha[0] - x[i + 1] * alpha[1]) >> output_shift);
+    y[i + 1] = signedSaturate16((x[i] * alpha[1] + x[i + 1]* alpha[0]) >> output_shift);
+  }
+  return 0;
+}
+#endif
+
+#if 0
+// --------------------Original----------------------2022-11-16
 int rotate_cpx_vector(int16_t *x,
                       int16_t *alpha,
                       int16_t *y,
@@ -413,7 +473,7 @@ int rotate_cpx_vector(int16_t *x,
     m3 = _mm_sra_epi32(m3,shift);        // shift right by shift in order to  compensate for the input amplitude
 
     y_128[0] = _mm_packs_epi32(m2,m3);        // pack in 16bit integers with saturation [re im re im re im re im]
-    //print_ints("y_128[0]=", &y_128[0]);
+    //print_ints("-----------------y_128[0]=", &y_128[0]);
 #elif defined(__arm__) || defined(__aarch64__)
 
   int32x4_t  tmp = vcombine_s32(vdup_n_s32 (xd[0]), vdup_n_s32 (xd[1]));
@@ -445,6 +505,7 @@ int rotate_cpx_vector(int16_t *x,
 
   return(0);
 }
+#endif
 
 /*
 int mult_vector32_scalar(int16_t *x1,
@@ -501,6 +562,7 @@ int complex_conjugate(int16_t *x1,
                       uint32_t N)
 
 {
+#if 0
   uint32_t i;                 // loop counter
 
   simd_q15_t *x1_128;
@@ -526,7 +588,7 @@ int complex_conjugate(int16_t *x1,
 
   _mm_empty();
   _m_empty();
-
+#endif
   return(0);
 }
 

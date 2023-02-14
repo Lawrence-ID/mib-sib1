@@ -40,6 +40,8 @@
 //#define DEBUG_PBCH 
 //#define DEBUG_PBCH_ENCODING
 
+#define RISCV 1
+
 #ifdef OPENAIR2
   //#include "PHY_INTERFACE/defs.h"
 #endif
@@ -47,6 +49,12 @@
 #define PBCH_A 24
 
 #define print_shorts(s,x) printf("%s : %d,%d,%d,%d,%d,%d,%d,%d\n",s,((int16_t*)x)[0],((int16_t*)x)[1],((int16_t*)x)[2],((int16_t*)x)[3],((int16_t*)x)[4],((int16_t*)x)[5],((int16_t*)x)[6],((int16_t*)x)[7])
+
+static inline int16_t signedSaturate16(int32_t x){ //return: -32768~32767
+    if(x > 32767) return 32767;
+    else if(x < -32768) return -32768;
+    else return x;
+}
 
 uint16_t nr_pbch_extract(int **rxdataF,
                          int **dl_ch_estimates,
@@ -201,6 +209,42 @@ uint16_t nr_pbch_extract(int **rxdataF,
 //__m128i avg128;
 
 //compute average channel_level on each (TX,RX) antenna pair
+
+#if RISCV
+// px nr_pbch_channel_level
+int nr_pbch_channel_level(int **dl_ch_estimates_ext,
+                          NR_DL_FRAME_PARMS *frame_parms,
+                          uint32_t symbol) {
+  printf("==========px nr_pbch_channel_level==========\n");
+  int16_t rb, nb_rb=20;
+  uint8_t aarx;
+
+  int sum;
+  int16_t *dl_ch16;
+
+  int avg1=0,avg2=0;
+
+  for (aarx=0; aarx<frame_parms->nb_antennas_rx; aarx++) {
+    //clear average level
+    sum = 0;
+    dl_ch16 = (int16_t *)&dl_ch_estimates_ext[aarx][symbol*20*12];
+
+    for (rb=0; rb<nb_rb * 24; rb++) {
+      sum += dl_ch16[rb] * dl_ch16[rb];
+    }
+
+    avg1 = sum / (nb_rb*12);
+
+    if (avg1>avg2)
+      avg2 = avg1;
+
+    // LOG_I(PHY,"\n\nChannel level : %d, %d\n\n",avg1, avg2);
+  }
+
+  return(avg2);
+}
+#else // NOT RISCV
+// Orignial nr_pbch_channel_level
 int nr_pbch_channel_level(int **dl_ch_estimates_ext,
                           NR_DL_FRAME_PARMS *frame_parms,
                           uint32_t symbol) {
@@ -261,7 +305,7 @@ int nr_pbch_channel_level(int **dl_ch_estimates_ext,
     if (avg1>avg2)
       avg2 = avg1;
 
-    //LOG_I(PHY,"Channel level : %d, %d\n",avg1, avg2);
+    // LOG_I(PHY,"\n\nChannel level  original: %d, %d\n\n",avg1, avg2);
   }
 
 #if defined(__x86_64__) || defined(__i386__)
@@ -270,7 +314,49 @@ int nr_pbch_channel_level(int **dl_ch_estimates_ext,
 #endif
   return(avg2);
 }
+#endif
 
+#if RISCV
+// px nr_pbch_channel_compensation
+void nr_pbch_channel_compensation(int **rxdataF_ext,
+                                  int **dl_ch_estimates_ext,
+                                  int **rxdataF_comp,
+                                  NR_DL_FRAME_PARMS *frame_parms,
+                                  uint32_t symbol,
+                                  uint8_t output_shift) {
+  const uint16_t nb_re=symbol == 2 ? 72 : 180;
+  AssertFatal((symbol > 0 && symbol < 4),
+              "symbol %d is illegal for PBCH DM-RS\n",
+              symbol);
+
+  //  printf("comp: symbol %d : nb_re %d\n",symbol,nb_re);
+
+  for (int aarx=0; aarx<frame_parms->nb_antennas_rx; aarx++) {
+
+    int16_t*dl_ch16          = (int16_t *)&dl_ch_estimates_ext[aarx][symbol*20*12];
+    int16_t *rxdataF16        = (int16_t *)&rxdataF_ext[aarx][symbol*20*12];
+    int16_t *rxdataF_comp16   = (int16_t *)&rxdataF_comp[aarx][symbol*20*12];
+    /*
+    printf("ch compensation dl_ch ext addr %p \n", &dl_ch_estimates_ext[aarx][symbol*20*12]);
+    printf("rxdataf ext addr %p symbol %d\n", &rxdataF_ext[aarx][symbol*20*12], symbol);
+    printf("rxdataf_comp addr %p\n",&rxdataF_comp[aarx][symbol*20*12]);
+    */
+
+    for (int re=0; re<nb_re; re+=12) {
+     for(int i = 0; i < 12 * 2; i += 2){
+            rxdataF_comp16[i]     = signedSaturate16( (dl_ch16[i] * rxdataF16[i] + dl_ch16[i + 1] * rxdataF16[i + 1]) >> output_shift );
+            rxdataF_comp16[i + 1] = signedSaturate16( (dl_ch16[i] * rxdataF16[i + 1] - dl_ch16[i + 1] * rxdataF16[i]) >> output_shift );
+        }
+
+        dl_ch16 += 24;
+        rxdataF16 += 24;
+        rxdataF_comp16 += 24;
+
+    }
+  }
+}
+#else // NOT RISCV
+// Original nr_pbch_channel_compensation
 void nr_pbch_channel_compensation(int **rxdataF_ext,
                                   int **dl_ch_estimates_ext,
                                   int **rxdataF_comp,
@@ -301,7 +387,36 @@ void nr_pbch_channel_compensation(int **rxdataF_ext,
     }
   }
 }
+#endif
 
+#if RISCV
+// px nr_pbch_detection_mrc
+void nr_pbch_detection_mrc(NR_DL_FRAME_PARMS *frame_parms,
+                           int **rxdataF_comp,
+                           uint8_t symbol) 
+{
+  printf("==========px nr_pbch_detection_mrc==========\n");
+  uint8_t symbol_mod;
+  int i, nb_rb=6;
+
+  int16_t *rxdataF_comp16_0,*rxdataF_comp16_1;
+
+  symbol_mod = (symbol>=(7-frame_parms->Ncp)) ? symbol-(7-frame_parms->Ncp) : symbol;
+
+  if (frame_parms->nb_antennas_rx>1) {
+
+    rxdataF_comp16_0   = (int16_t *)&rxdataF_comp[0][symbol_mod*6*12];
+    rxdataF_comp16_1   = (int16_t *)&rxdataF_comp[1][symbol_mod*6*12];
+
+    // MRC on each re of rb, both on MF output and magnitude (for 16QAM/64QAM llr computation)
+    for (i=0; i< (nb_rb*3) << 3; i++) {
+      rxdataF_comp16_0[i] = signedSaturate16((rxdataF_comp16_0[i] >> 1) + (rxdataF_comp16_1[i] >> 1));
+    }
+  }
+
+}
+#else // NOT RISCV
+// Original nr_pbch_detection_mrc
 void nr_pbch_detection_mrc(NR_DL_FRAME_PARMS *frame_parms,
                            int **rxdataF_comp,
                            uint8_t symbol) {
@@ -338,7 +453,7 @@ void nr_pbch_detection_mrc(NR_DL_FRAME_PARMS *frame_parms,
   _m_empty();
 #endif
 }
-
+#endif
 static void nr_pbch_unscrambling(NR_UE_PBCH *pbch,
                           uint16_t Nid,
                           uint8_t nushift,

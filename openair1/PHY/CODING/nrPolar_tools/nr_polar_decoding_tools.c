@@ -244,6 +244,7 @@ void build_decoder_tree(t_nrPolar_params *polarParams)
 #endif
 
 void applyFtoleft(const t_nrPolar_params *pp, decoder_node_t *node) {
+  
   int16_t *alpha_v=node->alpha;
   int16_t *alpha_l=node->left->alpha;
   int16_t *betal = node->left->beta;
@@ -259,7 +260,9 @@ void applyFtoleft(const t_nrPolar_params *pp, decoder_node_t *node) {
  
 
   if (node->left->all_frozen == 0) {
+#if 0
 #if defined(__AVX2__)
+    printf("applyFtoleft, __AVX2___\n");
     int avx2mod = (node->Nv/2)&15;
     if (avx2mod == 0) {
       __m256i a256,b256,absa256,absb256,minabs256;
@@ -352,31 +355,32 @@ void applyFtoleft(const t_nrPolar_params *pp, decoder_node_t *node) {
     int sse4mod = (node->Nv/2)&7;
 
     if (sse4mod == 0) {
-    __m128i a128,b128,absa128,absb128,minabs128;
-    int sse4len = node->Nv/2/8;
+  //   __m128i a128,b128,absa128,absb128,minabs128;
+  //   int sse4len = node->Nv/2/8;
 
-    for (int i=0;i<sse4len;i++) {
-      a128       =*((__m128i*)alpha_v);
-      b128       =((__m128i*)alpha_v)[1];
-      absa128    =_mm_abs_epi16(a128);
-      absb128    =_mm_abs_epi16(b128);
-      minabs128  =_mm_min_epi16(absa128,absb128);
-	*((__m128i*)alpha_l) =_mm_sign_epi16(minabs128,_mm_sign_epi16(a128,b128));
+  //   for (int i=0;i<sse4len;i++) {
+  //     a128       =*((__m128i*)alpha_v);
+  //     b128       =((__m128i*)alpha_v)[1];
+  //     absa128    =_mm_abs_epi16(a128);
+  //     absb128    =_mm_abs_epi16(b128);
+  //     minabs128  =_mm_min_epi16(absa128,absb128);
+	// *((__m128i*)alpha_l) =_mm_sign_epi16(minabs128,_mm_sign_epi16(a128,b128));
 
-      }
+  //     }
     }
     else if (sse4mod == 4) {
-      int16x4_t a64,b64,absa64,absb64,minabs64;
-      a64       =*((int16x4_t*)alpha_v);
-      b64       =((int16x4_t*)alpha_v)[1];
-      absa64    =_mm_abs_pi16(a64);
-      absb64    =_mm_abs_pi16(b64);
-      minabs64  =_mm_min_pi16(absa64,absb64);
+      // int16x4_t a64,b64,absa64,absb64,minabs64;
+      // a64       =*((int16x4_t*)alpha_v);
+      // b64       =((int16x4_t*)alpha_v)[1];
+      // absa64    =_mm_abs_pi16(a64);
+      // absb64    =_mm_abs_pi16(b64);
+      // minabs64  =_mm_min_pi16(absa64,absb64);
 
-      *((__m64*)alpha_l) =_mm_sign_pi16(minabs64,_mm_sign_epi16(a64,b64));
+      // *((__m64*)alpha_l) =_mm_sign_pi16(minabs64,_mm_sign_epi16(a64,b64));
     }
 
     else
+#endif
 #endif
     { // equivalent scalar code to above, activated only on non x86/ARM architectures
       for (int i=0;i<node->Nv/2;i++) {
@@ -405,7 +409,7 @@ void applyFtoleft(const t_nrPolar_params *pp, decoder_node_t *node) {
 }
 
 void applyGtoright(const t_nrPolar_params *pp,decoder_node_t *node) {
-
+  
   int16_t *alpha_v=node->alpha;
   int16_t *alpha_r=node->right->alpha;
   int16_t *betal = node->left->beta;
@@ -415,8 +419,10 @@ void applyGtoright(const t_nrPolar_params *pp,decoder_node_t *node) {
   printf("applyGtoright %d, Nv %d (level %d), (leaf %d, AF %d)\n",node->first_leaf_index,node->Nv,node->level,node->right->leaf,node->right->all_frozen);
 #endif
   
-  if (node->right->all_frozen == 0) {  
-#if defined(__AVX2__) 
+  if (node->right->all_frozen == 0) {
+#if 0
+#if defined(__AVX2__)
+    printf("applyGtoright, __AVX2___\n");
     int avx2mod = (node->Nv/2)&15;
     if (avx2mod == 0) {
       int avx2len = node->Nv/2/16;
@@ -467,29 +473,30 @@ void applyGtoright(const t_nrPolar_params *pp,decoder_node_t *node) {
     int sse4mod = (node->Nv/2)&7;
 
     if (sse4mod == 0) {
-      int sse4len = node->Nv/2/8;
+  //     int sse4len = node->Nv/2/8;
       
-      for (int i=0;i<sse4len;i++) {
-	((__m128i *)alpha_r)[0] = _mm_subs_epi16(((__m128i *)alpha_v)[1],_mm_sign_epi16(((__m128i *)alpha_v)[0],((__m128i *)betal)[0]));
-      }
+  //     for (int i=0;i<sse4len;i++) {
+	// ((__m128i *)alpha_r)[0] = _mm_subs_epi16(((__m128i *)alpha_v)[1],_mm_sign_epi16(((__m128i *)alpha_v)[0],((__m128i *)betal)[0]));
+  //     }
     }
     else if (sse4mod == 4) {
-      ((__m64 *)alpha_r)[0] = _mm_subs_pi16(((__m64 *)alpha_v)[1],_mm_sign_pi16(((__64 *)alpha_v)[0],((__m64 *)betal)[0]));	
+      // ((__m64 *)alpha_r)[0] = _mm_subs_pi16(((__m64 *)alpha_v)[1],_mm_sign_pi16(((__64 *)alpha_v)[0],((__m64 *)betal)[0]));	
     }
     else 
 #endif
-      {// equivalent scalar code to above, activated only on non x86/ARM architectures or Nv=1,2
+#endif
+{// equivalent scalar code to above, activated only on non x86/ARM architectures or Nv=1,2
 	for (int i=0;i<node->Nv/2;i++) {
 	  alpha_r[i] = alpha_v[i+(node->Nv/2)] - (betal[i]*alpha_v[i]);
 	}
-      }
+}
     if (node->Nv == 2) { // apply hard decision on right node
       betar[0] = (alpha_r[0]>0) ? -1 : 1;
       pp->nr_polar_U[node->first_leaf_index+1] = (1+betar[0])>>1;
 #ifdef DEBUG_NEW_IMPL
       printf("Setting bit %d to %d (LLR %d)\n",node->first_leaf_index+1,(betar[0]+1)>>1,alpha_r[0]);
 #endif
-    } 
+    }
   }
 }
 
@@ -505,6 +512,7 @@ void computeBeta(const t_nrPolar_params *pp,decoder_node_t *node) {
 #endif
 #if defined(__x86_64__) || defined(__i386__)
   if (node->left->all_frozen==0) { // if left node is not aggregation of frozen bits
+#if 0
 #if defined(__AVX2__) 
     int avx2mod = (node->Nv/2)&15;
     register __m256i allones=*((__m256i*)all1);
@@ -528,16 +536,17 @@ void computeBeta(const t_nrPolar_params *pp,decoder_node_t *node) {
     int ssr4mod = (node->Nv/2)&15;
 
     if (ssr4mod == 0) {
-      int ssr4len = node->Nv/2/8;
-      register __m128i allones=*((__m128i*)all1);
-      for (int i=0;i<ssr4len;i++) {
-      ((__m256i*)betav)[i] = _mm_or_si128(_mm_cmpeq_epi16(((__m128i*)betar)[i], ((__m128i*)betal)[i]),allones);
-      }
+      // int ssr4len = node->Nv/2/8;
+      // register __m128i allones=*((__m128i*)all1);
+      // for (int i=0;i<ssr4len;i++) {
+      // ((__m256i*)betav)[i] = _mm_or_si128(_mm_cmpeq_epi16(((__m128i*)betar)[i], ((__m128i*)betal)[i]),allones);
+      // }
     }
     else if (sse4mod == 4) {
-      ((__m64*)betav)[0] = _mm_or_si64(_mm_cmpeq_pi16(((__m64*)betar)[0], ((__m64*)betal)[0]),*((__m64*)all1));
+      // ((__m64*)betav)[0] = _mm_or_si64(_mm_cmpeq_pi16(((__m64*)betar)[0], ((__m64*)betal)[0]),*((__m64*)all1));
     }
     else
+#endif
 #endif
       {
 	for (int i=0;i<node->Nv/2;i++) {
